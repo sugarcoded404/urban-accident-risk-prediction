@@ -1,1 +1,3 @@
 data/raw/
+.venv/
+.notebook/
