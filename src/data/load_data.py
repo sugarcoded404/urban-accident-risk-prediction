@@ -7,7 +7,7 @@ BASE_DIR = Path(__file__).resolve().parents[2]
 DB_PATH = BASE_DIR / "data" / "raw" / "data_accidentes.sqlite3"
 
 def load_tables():
-
+    """Loads the tables from the SQLite database and returns them as pandas DataFrames."""
     pd.set_option("display.max_columns", None)
 
     con = sqlite3.connect(DB_PATH)
