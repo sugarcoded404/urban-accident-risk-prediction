@@ -80,29 +80,67 @@ def add_historical_features(
         - df_30d["acc_cum_30d_ago"].values
     ).clip(min=0)
 
+    # --- hist_acc_hour_neighborhood: running count por (BARRIO, hour) ---
+    raw = raw.copy()
     raw["hour"] = raw["TW"].dt.hour
-    hist_hour = (
-        raw.groupby(["BARRIO", "hour"])
-        .size()
-        .reset_index(name="hist_acc_hour_neighborhood")
+    # contar accidentes por (BARRIO, hour, TW)
+    acc_hour = (
+        raw.sort_values("TW")
+        .assign(n=1)
+        .groupby(["BARRIO", "hour", "TW"])["n"]
+        .sum()
+        .reset_index()
     )
+    # cumsum por (BARRIO, hour)
+    acc_hour["hist_acc_hour_running"] = (
+        acc_hour.groupby(["BARRIO", "hour"])["n"].cumsum()
+    )
+
+    acc_hour = acc_hour.rename(columns={"TW": "TW_raw"})
+
+    # preparar df para merge_asof por (BARRIO, hour)
+    df = df.sort_values(["BARRIO", "TW"]).reset_index(drop=True)
     df["hour"] = df["TW"].dt.hour
-    df = df.merge(hist_hour, on=["BARRIO", "hour"], how="left")
-    df["hist_acc_hour_neighborhood"] = df["hist_acc_hour_neighborhood"].fillna(0)
 
-    n_hours = (
-        raw.groupby("BARRIO")["TW"].nunique()
-        .reset_index(name="n_observed_hours")
+    df = pd.merge_asof(
+        df.sort_values(["BARRIO", "hour", "TW"]),
+        acc_hour.sort_values(["BARRIO", "hour", "TW_raw"]),
+        left_on="TW",
+        right_on="TW_raw",
+        by=["BARRIO", "hour"],
+        direction="backward",
     )
-    total_acc = (
-        raw.groupby("BARRIO").size()
-        .reset_index(name="total_accidents")
-    )
-    rate = n_hours.merge(total_acc, on="BARRIO")
-    rate["hist_rate_neighborhood"] = rate["total_accidents"] / rate["n_observed_hours"]
+    df["hist_acc_hour_neighborhood"] = df["hist_acc_hour_running"].fillna(0)
 
-    df = df.merge(rate[["BARRIO", "hist_rate_neighborhood"]], on="BARRIO", how="left")
-    df["hist_rate_neighborhood"] = df["hist_rate_neighborhood"].fillna(0)
+    # --- hist_rate_neighborhood: tasa móvil (acumulados hasta TW) ---
+    # usar acc_cum (ya tiene acumulado por BARRIO en "hist_acc_neighborhood_total")
+    acc_hours = (
+        acc_cum[["BARRIO", "TW_raw"]]
+        .drop_duplicates()
+        .sort_values(["BARRIO", "TW_raw"]) 
+        .assign(observed_hour=1)
+    )
+    acc_hours["cum_observed_hours"] = (
+        acc_hours.groupby("BARRIO")["observed_hour"].cumsum()
+    )
+
+    # merge_asof para traer cum_observed_hours a cada fila de df
+    df = pd.merge_asof(
+        df.sort_values(["BARRIO", "TW"]),
+        acc_hours.rename(columns={"TW_raw": "TW_raw_hours"}).sort_values(["BARRIO", "TW_raw_hours"]),
+        left_on="TW",
+        right_on="TW_raw_hours",
+        by=["BARRIO"],
+        direction="backward",
+    )
+
+    # calcular tasa: acumulado de accidentes / horas observadas hasta TW
+    df["cum_observed_hours"] = df["cum_observed_hours"].fillna(0)
+    df["hist_rate_neighborhood"] = 0.0
+    mask = df["cum_observed_hours"] > 0
+    df.loc[mask, "hist_rate_neighborhood"] = (
+        df.loc[mask, "hist_acc_neighborhood_total"] / df.loc[mask, "cum_observed_hours"]
+    )
 
     df = df.drop(columns=["TW_raw"], errors="ignore")
 
