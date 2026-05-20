@@ -1,7 +1,3 @@
-"""
-src/data/validation.py
-Data quality functions for the tables: accidents, weather, raw_accidents.
-"""
 
 import pandas as pd
 import numpy as np
