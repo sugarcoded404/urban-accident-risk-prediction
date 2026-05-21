@@ -6,18 +6,23 @@ def build_dataset(
     weather: pd.DataFrame
 ) -> pd.DataFrame:
     """
-    Performs a LEFT JOIN of weather ← accidents
-    to construct the binary target variable.
+    Realiza un LEFT JOIN de weather ← accidents
+    para construir la variable objetivo binaria.
+
+    La función conserva todas las combinaciones (BARRIO, TW) de weather y
+    etiqueta como `target=1` solo cuando existe un accidente en ese barrio y
+    ese instante. Como el join es sobre el mismo `TW` y barrio, no introduce
+    información futura en el target.
 
     Parameters
     ----------
-    accidents : aggregated table (only rows with accidents)
-    weather   : weather table (covers all neighborhood-hour combinations)
+    accidents : tabla agregada (solo filas con accidentes)
+    weather   : tabla meteorológica (cubre todas las combinaciones barrio-hora)
 
     Returns
     -------
-    DataFrame containing all (BARRIO, TW) combinations
-    and the `target` column.
+    DataFrame que contiene todas las combinaciones (BARRIO, TW)
+    y la columna `target`.
     """
 
     accidents = accidents.copy()
@@ -58,9 +63,9 @@ def build_dataset(
 
 
 def join_summary(df: pd.DataFrame) -> None:
-    """Prints basic statistics of the merged dataset."""
+    """Imprime estadísticas básicas del conjunto de datos fusionado."""
 
-    print("\n── Dataset Summary ──────────────────────────────")
+    print("\n── Resumen del dataset ──────────────────────────────")
 
     print(f"Total rows        : {len(df):,}")
     print(f"Unique neighborhoods : {df['BARRIO'].nunique()}")

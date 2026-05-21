@@ -10,6 +10,10 @@ def add_historical_features(
     Calcula features históricas por barrio usando raw_accidentes.
     Completamente vectorizado — sin loops Python.
 
+    Las variables históricas se calculan con `merge_asof(..., direction='backward')`
+    para que cada fila sólo reciba información de accidentes previos a su TW,
+    evitando así fuga temporal.
+
     Features generadas
     ------------------
     hist_acc_neighborhood_total : acumulado de accidentes en el barrio hasta TW
@@ -99,12 +103,11 @@ def add_historical_features(
     acc_hour = acc_hour.rename(columns={"TW": "TW_raw"})
 
     # preparar df para merge_asof por (BARRIO, hour)
-    df = df.sort_values(["BARRIO", "TW"]).reset_index(drop=True)
     df["hour"] = df["TW"].dt.hour
 
     df = pd.merge_asof(
-        df.sort_values(["BARRIO", "hour", "TW"]),
-        acc_hour.sort_values(["BARRIO", "hour", "TW_raw"]),
+        df.sort_values("TW"),
+        acc_hour.sort_values("TW_raw"),
         left_on="TW",
         right_on="TW_raw",
         by=["BARRIO", "hour"],
@@ -126,12 +129,12 @@ def add_historical_features(
 
     # merge_asof para traer cum_observed_hours a cada fila de df
     df = pd.merge_asof(
-        df.sort_values(["BARRIO", "TW"]),
-        acc_hours.rename(columns={"TW_raw": "TW_raw_hours"}).sort_values(["BARRIO", "TW_raw_hours"]),
-        left_on="TW",
-        right_on="TW_raw_hours",
-        by=["BARRIO"],
-        direction="backward",
+    df.sort_values("TW"),
+    acc_hours.rename(columns={"TW_raw": "TW_raw_hours"}).sort_values("TW_raw_hours"),
+    left_on="TW",
+    right_on="TW_raw_hours",
+    by=["BARRIO"],
+    direction="backward",
     )
 
     # calcular tasa: acumulado de accidentes / horas observadas hasta TW
