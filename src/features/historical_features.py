@@ -10,6 +10,10 @@ def add_historical_features(
     Calcula features históricas por barrio usando raw_accidentes.
     Completamente vectorizado — sin loops Python.
 
+    Las variables históricas se calculan con `merge_asof(..., direction='backward')`
+    para que cada fila sólo reciba información de accidentes previos a su TW,
+    evitando así fuga temporal.
+
     Features generadas
     ------------------
     hist_acc_neighborhood_total : acumulado de accidentes en el barrio hasta TW
