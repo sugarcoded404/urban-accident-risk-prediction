@@ -1,7 +1,6 @@
 data/raw/
 data/processed/
 .venv/
-models/
 
 __pycache__/
 *.pyc
